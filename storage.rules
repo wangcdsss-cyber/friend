@@ -1,0 +1,14 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    match /chatImages/{uidA}/{uidB}/{fileName} {
+      allow read: if isAuthenticated() && (request.auth.uid == uidA || request.auth.uid == uidB);
+      allow write: if isAuthenticated() && (request.auth.uid == uidA || request.auth.uid == uidB);
+    }
+  }
+}
+

@@ -1,12 +1,28 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseMessaging
+import FirebaseFirestore
+import FirebaseStorage
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
+
+        if ProcessInfo.processInfo.environment["USE_FIREBASE_EMULATOR"] == "1" {
+            let host = ProcessInfo.processInfo.environment["FIRESTORE_EMULATOR_HOST"] ?? "localhost"
+            let port = Int(ProcessInfo.processInfo.environment["FIRESTORE_EMULATOR_PORT"] ?? "8080") ?? 8080
+            Firestore.firestore().useEmulator(withHost: host, port: port)
+
+            let storageHost = ProcessInfo.processInfo.environment["STORAGE_EMULATOR_HOST"] ?? "localhost"
+            let storagePort = Int(ProcessInfo.processInfo.environment["STORAGE_EMULATOR_PORT"] ?? "9199") ?? 9199
+            Storage.storage().useEmulator(withHost: storageHost, port: storagePort)
+        }
+
+        var settings = Firestore.firestore().settings
+        settings.isPersistenceEnabled = true
+        Firestore.firestore().settings = settings
         
         // Push Notification Setup
         UNUserNotificationCenter.current().delegate = self

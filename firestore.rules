@@ -19,7 +19,8 @@ service cloud.firestore {
 
     // users collection
     match /users/{userId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAuthenticated()
+                  && (request.auth.uid == userId || getUserGender() == resource.data.gender);
       allow create: if isAuthenticated()
                     && request.auth.uid == userId
                     && request.resource.data.uid == userId
@@ -52,10 +53,14 @@ service cloud.firestore {
       // Allow creation if the user includes themselves as a participant
       allow create: if isAuthenticated()
                     && request.auth.uid in request.resource.data.members
+                    && request.resource.data.members.size() == 2
                     && request.resource.data.roomId == roomId;
       
       // Allow update only if the user is a participant
-      allow update: if isAuthenticated() && request.auth.uid in resource.data.members;
+      allow update: if isAuthenticated()
+                    && request.auth.uid in resource.data.members
+                    && request.resource.data.roomId == resource.data.roomId
+                    && request.resource.data.members == resource.data.members;
     }
 
     // messages collection (subcollection of chatRooms)
@@ -67,7 +72,10 @@ service cloud.firestore {
       allow create: if isAuthenticated() 
                     && request.auth.uid in get(/databases/$(database)/documents/chatRooms/$(roomId)).data.members
                     && request.resource.data.senderId == request.auth.uid
-                    && request.resource.data.messageId == messageId;
+                    && request.resource.data.messageId == messageId
+                    && (request.resource.data.type == "text" || request.resource.data.type == "image");
+
+      allow update, delete: if false;
     }
   }
 }

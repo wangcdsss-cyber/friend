@@ -1,9 +1,7 @@
 import Foundation
 
 struct RelativeTimeFormatter {
-    static func format(date: Date) -> String {
-        let calendar = Calendar.current
-        let now = Date()
+    static func format(date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
         let components = calendar.dateComponents([.minute, .hour, .day], from: date, to: now)
         
         if let day = components.day, day > 0 {

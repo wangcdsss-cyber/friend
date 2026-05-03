@@ -1,0 +1,15 @@
+{
+  "name": "firestore-loadtest",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "loadtest": "node index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.5.0",
+    "p-limit": "^6.2.0",
+    "yargs": "^18.0.0"
+  }
+}
+

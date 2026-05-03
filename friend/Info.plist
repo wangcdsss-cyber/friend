@@ -13,5 +13,9 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>用于拍照并发送聊天图片。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>用于从相册选择图片并发送。</string>
 </dict>
 </plist>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Friend 管理后台</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script defer src="/__/firebase/10.12.4/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/10.12.4/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">Friend 管理后台</div>
+        <div class="topbar-right">
+          <div id="me" class="me"></div>
+          <button id="logoutBtn" class="btn secondary" type="button" hidden>退出登录</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <section id="loginPanel" class="panel">
+          <h1>管理员登录</h1>
+          <p class="muted">使用 Firebase Auth 邮箱登录（需在允许名单内）。</p>
+          <div class="field">
+            <label>邮箱</label>
+            <input id="email" type="email" autocomplete="username" placeholder="admin@example.com" />
+          </div>
+          <div class="field">
+            <label>密码</label>
+            <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
+          </div>
+          <div class="row">
+            <button id="loginBtn" class="btn primary" type="button">登录</button>
+            <div id="loginError" class="error"></div>
+          </div>
+        </section>
+
+        <section id="dashboard" class="dashboard" hidden>
+          <div class="split">
+            <div class="left panel">
+              <div class="row space">
+                <h2>会话列表</h2>
+                <button id="refreshBtn" class="btn secondary" type="button">刷新</button>
+              </div>
+              <div id="rooms" class="rooms"></div>
+            </div>
+
+            <div class="right panel">
+              <div class="row space">
+                <h2 id="roomTitle">消息</h2>
+                <div class="muted" id="roomMeta"></div>
+              </div>
+              <div id="messages" class="messages"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div class="muted">仅限管理员使用，所有查看操作将写入审计日志。</div>
+      </footer>
+    </div>
+  </body>
+</html>
+
