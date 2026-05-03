@@ -1,0 +1,17 @@
+.DS_Store
+
+# Xcode
+DerivedData/
+build/
+*.xcuserstate
+*.xcuserdata/
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+# SwiftPM
+.swiftpm/
+Packages/
+
+# Firebase
+GoogleService-Info.plist
