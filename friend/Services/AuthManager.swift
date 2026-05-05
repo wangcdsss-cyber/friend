@@ -4,20 +4,38 @@ import FirebaseFirestore
 import Combine
 
 class AuthManager: ObservableObject {
+    enum SessionState: Equatable {
+        case checking
+        case signedOut
+        case signedInNeedsProfile
+        case signedInReady
+    }
+
     @Published var isAuthenticated = false
     @Published var currentUser: AppUser?
     @Published var pendingPasswordResetCode: String?
+    @Published var sessionState: SessionState = .checking
     
     private let db = Firestore.firestore()
     
     init() {
         // Listen to Auth state changes
         Auth.auth().addStateDidChangeListener { [weak self] auth, user in
+            guard let self else { return }
             if let user = user {
-                self?.fetchUser(uid: user.uid)
-            } else {
-                self?.isAuthenticated = false
-                self?.currentUser = nil
+                DispatchQueue.main.async {
+                    self.isAuthenticated = false
+                    self.currentUser = nil
+                    self.sessionState = .signedInNeedsProfile
+                }
+                self.fetchUser(uid: user.uid)
+                return
+            }
+
+            DispatchQueue.main.async {
+                self.isAuthenticated = false
+                self.currentUser = nil
+                self.sessionState = .signedOut
             }
         }
     }
@@ -51,11 +69,13 @@ class AuthManager: ObservableObject {
                 DispatchQueue.main.async {
                     self?.currentUser = user
                     self?.isAuthenticated = true
+                    self?.sessionState = .signedInReady
                 }
             } else {
                 DispatchQueue.main.async {
                     self?.isAuthenticated = false
                     self?.currentUser = nil
+                    self?.sessionState = .signedInNeedsProfile
                 }
             }
         }

@@ -32,11 +32,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         settings.isPersistenceEnabled = true
         Firestore.firestore().settings = settings
         
-        // Push Notification Setup
+        // Push Notification Setup (defer permission request to after first screen)
         UNUserNotificationCenter.current().delegate = self
-        let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
-        UNUserNotificationCenter.current().requestAuthorization(options: authOptions) { _, _ in }
-        application.registerForRemoteNotifications()
         
         // Messaging Delegate
         #if canImport(FirebaseMessaging)
@@ -44,6 +41,16 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         #endif
         
         return true
+    }
+
+    func enablePushNotifications() {
+        let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
+        UNUserNotificationCenter.current().requestAuthorization(options: authOptions) { granted, _ in
+            guard granted else { return }
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
     }
     
     // Receive device token
@@ -79,7 +86,7 @@ struct friendApp: App {
     
     var body: some Scene {
         WindowGroup {
-            RootView()
+            RootView(appDelegate: delegate)
                 .environmentObject(authManager)
         }
     }
@@ -87,14 +94,17 @@ struct friendApp: App {
 
 private struct RootView: View {
     @EnvironmentObject var authManager: AuthManager
+    let appDelegate: AppDelegate
+    @State private var didEnablePush = false
 
     var body: some View {
         Group {
-            if authManager.isAuthenticated {
+            switch authManager.sessionState {
+            case .signedInReady:
                 MainTabView()
-            } else if Auth.auth().currentUser != nil {
+            case .signedInNeedsProfile:
                 InitialProfileSetupView()
-            } else {
+            case .signedOut, .checking:
                 AuthEntryView()
             }
         }
@@ -102,6 +112,11 @@ private struct RootView: View {
             if ProcessInfo.processInfo.arguments.contains("-ui_testing_force_logout") {
                 authManager.signOut()
             }
+        }
+        .onChange(of: authManager.sessionState) { _, newValue in
+            guard newValue == .signedInReady, !didEnablePush else { return }
+            didEnablePush = true
+            appDelegate.enablePushNotifications()
         }
         .onOpenURL { url in
             authManager.handleIncomingAuthLink(url)
