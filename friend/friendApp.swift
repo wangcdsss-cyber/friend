@@ -1,12 +1,15 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseAuth
-import FirebaseMessaging
 import FirebaseFirestore
 import FirebaseStorage
 import UserNotifications
 
-class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+#if canImport(FirebaseMessaging)
+import FirebaseMessaging
+#endif
+
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
@@ -36,25 +39,18 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         application.registerForRemoteNotifications()
         
         // Messaging Delegate
+        #if canImport(FirebaseMessaging)
         Messaging.messaging().delegate = self
+        #endif
         
         return true
     }
     
     // Receive device token
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        #if canImport(FirebaseMessaging)
         Messaging.messaging().apnsToken = deviceToken
-    }
-    
-    // Receive FCM token
-    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-        print("Firebase registration token: \(String(describing: fcmToken))")
-        // Store token in UserDefaults to retrieve it later when user logs in
-        if let token = fcmToken {
-            UserDefaults.standard.set(token, forKey: "fcmToken")
-            // If user is already logged in, update it in Firestore
-            NotificationCenter.default.post(name: Notification.Name("FCMTokenUpdated"), object: token)
-        }
+        #endif
     }
     
     // Handle foreground notifications
@@ -64,6 +60,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         completionHandler([[.banner, .sound, .badge]])
     }
 }
+
+#if canImport(FirebaseMessaging)
+extension AppDelegate: MessagingDelegate {
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        if let token = fcmToken {
+            UserDefaults.standard.set(token, forKey: "fcmToken")
+            NotificationCenter.default.post(name: Notification.Name("FCMTokenUpdated"), object: token)
+        }
+    }
+}
+#endif
 
 @main
 struct friendApp: App {
