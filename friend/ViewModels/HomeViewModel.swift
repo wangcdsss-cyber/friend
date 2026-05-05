@@ -1,6 +1,5 @@
 import Foundation
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 
 class HomeViewModel: ObservableObject {
     @Published var posts: [Post] = []
@@ -22,9 +21,7 @@ class HomeViewModel: ObservableObject {
             }
             guard let documents = snapshot?.documents else { return }
             
-            self?.posts = documents.compactMap { doc in
-                try? doc.data(as: Post.self)
-            }
+            self?.posts = documents.compactMap { FirestoreMapper.post(from: $0) }
         }
     }
     

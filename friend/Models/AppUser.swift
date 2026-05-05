@@ -1,6 +1,4 @@
 import Foundation
-import FirebaseFirestore
-import FirebaseFirestoreSwift
 
 enum Gender: String, Codable {
     case male = "male"

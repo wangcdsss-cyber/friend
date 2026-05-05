@@ -1,6 +1,4 @@
 import Foundation
-import FirebaseFirestore
-import FirebaseFirestoreSwift
 
 enum MessageType: String, Codable {
     case text
@@ -15,7 +13,7 @@ struct Message: Identifiable, Codable {
     var imageUrl: String?
     var imageWidth: Double?
     var imageHeight: Double?
-    @ServerTimestamp var createdAt: Date?
+    var createdAt: Date?
     var clientCreatedAt: Date
 
     var id: String { messageId }

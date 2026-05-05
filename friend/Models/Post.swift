@@ -1,6 +1,4 @@
 import Foundation
-import FirebaseFirestore
-import FirebaseFirestoreSwift
 
 struct Post: Identifiable, Codable {
     var postId: String

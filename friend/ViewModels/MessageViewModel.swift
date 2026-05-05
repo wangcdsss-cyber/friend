@@ -1,7 +1,6 @@
 import Foundation
 import UIKit
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 import FirebaseStorage
 
 class MessageViewModel: ObservableObject {
@@ -47,7 +46,7 @@ class MessageViewModel: ObservableObject {
                 guard let self else { return }
                 guard let documents = snapshot?.documents else { return }
 
-                let remoteMessages = documents.compactMap { try? $0.data(as: Message.self) }
+                let remoteMessages = documents.compactMap { FirestoreMapper.message(from: $0) }
                 var merged: [Message] = remoteMessages
 
                 let remoteIds = Set(remoteMessages.map { $0.messageId })
@@ -89,32 +88,27 @@ class MessageViewModel: ObservableObject {
         sendingMessageIds.insert(messageId)
         failedMessageIds.remove(messageId)
 
-        do {
-            let batch = db.batch()
-            try batch.setData(from: local, forDocument: messageRef)
-            batch.setData([
-                "roomId": roomId,
-                "updatedAt": FieldValue.serverTimestamp(),
-                "lastMessageAt": FieldValue.serverTimestamp(),
-                "lastMessageType": MessageType.text.rawValue,
-                "lastMessageText": trimmed,
-                "lastMessageSenderId": currentUid,
-                "lastReadAtByUser.\(currentUid)": FieldValue.serverTimestamp()
-            ], forDocument: roomRef, merge: true)
+        let batch = db.batch()
+        batch.setData(FirestoreMapper.messageData(local, createdAt: FieldValue.serverTimestamp()), forDocument: messageRef)
+        batch.setData([
+            "roomId": roomId,
+            "updatedAt": FieldValue.serverTimestamp(),
+            "lastMessageAt": FieldValue.serverTimestamp(),
+            "lastMessageType": MessageType.text.rawValue,
+            "lastMessageText": trimmed,
+            "lastMessageSenderId": currentUid,
+            "lastReadAtByUser.\(currentUid)": FieldValue.serverTimestamp()
+        ], forDocument: roomRef, merge: true)
 
-            batch.commit { [weak self] error in
-                guard let self else { return }
-                if let error {
-                    self.failedMessageIds.insert(messageId)
-                    self.errorMessage = "发送失败：\(error.localizedDescription)"
-                } else {
-                    self.sendingMessageIds.remove(messageId)
-                    self.localMessages.removeValue(forKey: messageId)
-                }
+        batch.commit { [weak self] error in
+            guard let self else { return }
+            if let error {
+                self.failedMessageIds.insert(messageId)
+                self.errorMessage = "发送失败：\(error.localizedDescription)"
+            } else {
+                self.sendingMessageIds.remove(messageId)
+                self.localMessages.removeValue(forKey: messageId)
             }
-        } catch {
-            failedMessageIds.insert(messageId)
-            errorMessage = "发送失败：\(error.localizedDescription)"
         }
     }
 
@@ -206,37 +200,30 @@ class MessageViewModel: ObservableObject {
                     clientCreatedAt: local.clientCreatedAt
                 )
 
-                do {
-                    let batch = self.db.batch()
-                    try batch.setData(from: finalized, forDocument: messageRef)
-                    batch.setData([
-                        "roomId": self.roomId,
-                        "updatedAt": FieldValue.serverTimestamp(),
-                        "lastMessageAt": FieldValue.serverTimestamp(),
-                        "lastMessageType": MessageType.image.rawValue,
-                        "lastMessageText": "",
-                        "lastMessageSenderId": currentUid,
-                        "lastReadAtByUser.\(currentUid)": FieldValue.serverTimestamp()
-                    ], forDocument: roomRef, merge: true)
+                let batch = self.db.batch()
+                batch.setData(FirestoreMapper.messageData(finalized, createdAt: FieldValue.serverTimestamp()), forDocument: messageRef)
+                batch.setData([
+                    "roomId": self.roomId,
+                    "updatedAt": FieldValue.serverTimestamp(),
+                    "lastMessageAt": FieldValue.serverTimestamp(),
+                    "lastMessageType": MessageType.image.rawValue,
+                    "lastMessageText": "",
+                    "lastMessageSenderId": currentUid,
+                    "lastReadAtByUser.\(currentUid)": FieldValue.serverTimestamp()
+                ], forDocument: roomRef, merge: true)
 
-                    batch.commit { [weak self] error in
-                        guard let self else { return }
-                        DispatchQueue.main.async {
-                            if let error {
-                                self.failedMessageIds.insert(messageId)
-                                self.errorMessage = "发送图片失败：\(error.localizedDescription)"
-                            } else {
-                                self.sendingMessageIds.remove(messageId)
-                                self.localMessages.removeValue(forKey: messageId)
-                                self.pendingImages.removeValue(forKey: messageId)
-                                self.uploadProgressByMessageId.removeValue(forKey: messageId)
-                            }
-                        }
-                    }
-                } catch {
+                batch.commit { [weak self] error in
+                    guard let self else { return }
                     DispatchQueue.main.async {
-                        self.failedMessageIds.insert(messageId)
-                        self.errorMessage = "发送图片失败：\(error.localizedDescription)"
+                        if let error {
+                            self.failedMessageIds.insert(messageId)
+                            self.errorMessage = "发送图片失败：\(error.localizedDescription)"
+                        } else {
+                            self.sendingMessageIds.remove(messageId)
+                            self.localMessages.removeValue(forKey: messageId)
+                            self.pendingImages.removeValue(forKey: messageId)
+                            self.uploadProgressByMessageId.removeValue(forKey: messageId)
+                        }
                     }
                 }
             }
@@ -288,7 +275,7 @@ class MessageViewModel: ObservableObject {
             }
             guard let self else { return }
             guard let snapshot else { return }
-            if let room = try? snapshot.data(as: ChatRoom.self) {
+            if let room = FirestoreMapper.chatRoom(from: snapshot) {
                 self.room = room
                 let otherUid = room.members.first(where: { $0 != currentUid })
                 if let otherUid {
@@ -306,7 +293,7 @@ class MessageViewModel: ObservableObject {
                 return
             }
             guard let snapshot else { return }
-            if let user = try? snapshot.data(as: AppUser.self) {
+            if let user = FirestoreMapper.appUser(from: snapshot) {
                 DispatchQueue.main.async {
                     self?.otherUser = user
                 }

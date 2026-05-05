@@ -1,6 +1,5 @@
 import Foundation
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 
 struct Conversation: Identifiable {
     let room: ChatRoom
@@ -60,7 +59,7 @@ class ChatViewModel: ObservableObject {
                 guard let documents = snapshot?.documents else { return }
                 
                 let rooms = documents.compactMap { doc -> ChatRoom? in
-                    try? doc.data(as: ChatRoom.self)
+                    FirestoreMapper.chatRoom(from: doc)
                 }
                 self?.chatRooms = rooms.sorted(by: { $0.updatedAtFallback > $1.updatedAtFallback })
                 self?.fetchOtherUsersIfNeeded(currentUid: uid, rooms: rooms)
@@ -86,30 +85,20 @@ class ChatViewModel: ObservableObject {
                 return
             }
 
-            let newRoom = ChatRoom(
-                roomId: roomId,
-                members: [uidA, uidB],
-                updatedAt: nil,
-                lastMessageAt: nil,
-                lastMessageType: nil,
-                lastMessageText: nil,
-                lastMessageSenderId: nil,
-                lastReadAtByUser: [currentUid: Date()]
-            )
+            let data: [String: Any] = [
+                "roomId": roomId,
+                "members": [uidA, uidB],
+                "updatedAt": FieldValue.serverTimestamp(),
+                "lastReadAtByUser": [currentUid: Timestamp(date: Date())]
+            ]
 
-            do {
-                try docRef.setData(from: newRoom) { err in
-                    if let err {
-                        print("Error creating chat room: \(err)")
-                        completion(nil)
-                        return
-                    }
-                    self?.fetchOtherUsersIfNeeded(currentUid: currentUid, rooms: [newRoom])
-                    completion(roomId)
+            docRef.setData(data, merge: true) { err in
+                if let err {
+                    print("Error creating chat room: \(err)")
+                    completion(nil)
+                    return
                 }
-            } catch {
-                print("Error creating chat room: \(error)")
-                completion(nil)
+                completion(roomId)
             }
         }
     }
@@ -120,7 +109,7 @@ class ChatViewModel: ObservableObject {
                 .whereField("members", arrayContains: uid)
                 .order(by: "updatedAt", descending: true)
                 .getDocuments()
-            let rooms = snapshot.documents.compactMap { try? $0.data(as: ChatRoom.self) }
+            let rooms = snapshot.documents.compactMap { FirestoreMapper.chatRoom(from: $0) }
             await MainActor.run {
                 self.chatRooms = rooms.sorted(by: { $0.updatedAtFallback > $1.updatedAtFallback })
                 self.fetchOtherUsersIfNeeded(currentUid: uid, rooms: rooms)
@@ -151,7 +140,7 @@ class ChatViewModel: ObservableObject {
                     return
                 }
                 guard let snapshot else { return }
-                if let user = try? snapshot.data(as: AppUser.self) {
+                if let user = FirestoreMapper.appUser(from: snapshot) {
                     self?.userCache[uid] = user
                     DispatchQueue.main.async {
                         self?.rebuildConversations(currentUid: currentUid, rooms: self?.chatRooms ?? rooms)

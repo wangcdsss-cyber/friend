@@ -1,6 +1,5 @@
 import SwiftUI
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 
 struct CreatePostView: View {
     @Environment(\.dismiss) private var dismiss
@@ -235,20 +234,15 @@ struct CreatePostView: View {
             purpose: "募集",
             createdAt: now
         )
-        
-        do {
-            try docRef.setData(from: newPost) { error in
-                isSubmitting = false
-                if let error = error {
-                    errorMessage = error.localizedDescription
-                } else {
-                    showingConfirmationModal = false
-                    dismiss()
-                }
-            }
-        } catch {
+
+        docRef.setData(FirestoreMapper.postData(newPost)) { error in
             isSubmitting = false
-            errorMessage = error.localizedDescription
+            if let error = error {
+                errorMessage = error.localizedDescription
+            } else {
+                showingConfirmationModal = false
+                dismiss()
+            }
         }
     }
 }
