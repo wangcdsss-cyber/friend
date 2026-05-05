@@ -16,7 +16,7 @@ class AuthManager: ObservableObject {
     @Published var pendingPasswordResetCode: String?
     @Published var sessionState: SessionState = .checking
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     init() {
         // Listen to Auth state changes

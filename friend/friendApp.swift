@@ -27,10 +27,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             let storagePort = Int(ProcessInfo.processInfo.environment["STORAGE_EMULATOR_PORT"] ?? "9199") ?? 9199
             Storage.storage().useEmulator(withHost: storageHost, port: storagePort)
         }
-
-        var settings = Firestore.firestore().settings
-        settings.isPersistenceEnabled = true
-        Firestore.firestore().settings = settings
         
         // Push Notification Setup (defer permission request to after first screen)
         UNUserNotificationCenter.current().delegate = self
