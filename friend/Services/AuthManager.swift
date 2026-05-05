@@ -6,6 +6,7 @@ import Combine
 class AuthManager: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: AppUser?
+    @Published var pendingPasswordResetCode: String?
     
     private let db = Firestore.firestore()
     
@@ -75,6 +76,46 @@ class AuthManager: ObservableObject {
             if error == nil {
                 self.fetchUser(uid: uid)
             }
+        }
+    }
+
+    func signInWithEmail(email: String, password: String, completion: @escaping (Error?) -> Void) {
+        Auth.auth().signIn(withEmail: email, password: password) { _, error in
+            completion(error)
+        }
+    }
+
+    func sendPasswordResetEmail(email: String, completion: @escaping (Error?) -> Void) {
+        Auth.auth().sendPasswordReset(withEmail: email) { error in
+            completion(error)
+        }
+    }
+
+    func handleIncomingAuthLink(_ url: URL) {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
+        let items = components.queryItems ?? []
+        let mode = items.first(where: { $0.name == "mode" })?.value
+        let oobCode = items.first(where: { $0.name == "oobCode" })?.value
+        if mode == "resetPassword", let oobCode, !oobCode.isEmpty {
+            DispatchQueue.main.async {
+                self.pendingPasswordResetCode = oobCode
+            }
+        }
+    }
+
+    func verifyPasswordResetCode(_ oobCode: String, completion: @escaping (Result<String, Error>) -> Void) {
+        Auth.auth().verifyPasswordResetCode(oobCode) { email, error in
+            if let error {
+                completion(.failure(error))
+                return
+            }
+            completion(.success(email ?? ""))
+        }
+    }
+
+    func confirmPasswordReset(oobCode: String, newPassword: String, completion: @escaping (Error?) -> Void) {
+        Auth.auth().confirmPasswordReset(withCode: oobCode, newPassword: newPassword) { error in
+            completion(error)
         }
     }
     

@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseCore
+import FirebaseAuth
 import FirebaseMessaging
 import FirebaseFirestore
 import FirebaseStorage
@@ -11,6 +12,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         FirebaseApp.configure()
 
         if ProcessInfo.processInfo.environment["USE_FIREBASE_EMULATOR"] == "1" {
+            let authHost = ProcessInfo.processInfo.environment["AUTH_EMULATOR_HOST"] ?? "localhost"
+            let authPort = Int(ProcessInfo.processInfo.environment["AUTH_EMULATOR_PORT"] ?? "9099") ?? 9099
+            Auth.auth().useEmulator(withHost: authHost, port: authPort)
+
             let host = ProcessInfo.processInfo.environment["FIRESTORE_EMULATOR_HOST"] ?? "localhost"
             let port = Int(ProcessInfo.processInfo.environment["FIRESTORE_EMULATOR_PORT"] ?? "8080") ?? 8080
             Firestore.firestore().useEmulator(withHost: host, port: port)
@@ -67,13 +72,32 @@ struct friendApp: App {
     
     var body: some Scene {
         WindowGroup {
+            RootView()
+                .environmentObject(authManager)
+        }
+    }
+}
+
+private struct RootView: View {
+    @EnvironmentObject var authManager: AuthManager
+
+    var body: some View {
+        Group {
             if authManager.isAuthenticated {
                 MainTabView()
-                    .environmentObject(authManager)
+            } else if Auth.auth().currentUser != nil {
+                InitialProfileSetupView()
             } else {
-                LoginView()
-                    .environmentObject(authManager)
+                AuthEntryView()
             }
+        }
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("-ui_testing_force_logout") {
+                authManager.signOut()
+            }
+        }
+        .onOpenURL { url in
+            authManager.handleIncomingAuthLink(url)
         }
     }
 }
