@@ -21,64 +21,19 @@ struct ChatRoomView: View {
     
     var body: some View {
         VStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(viewModel.messages) { message in
-                            MessageBubble(
-                                message: message,
-                                isFromCurrentUser: message.senderId == authManager.currentUser?.uid,
-                                pendingImage: viewModel.pendingImage(for: message.messageId),
-                                statusText: viewModel.statusText(for: message),
-                                uploadProgress: viewModel.uploadProgressByMessageId[message.messageId]
-                            )
-                                .accessibilityIdentifier(message.type == .image ? "imageBubble_\(message.messageId)" : "textBubble_\(message.messageId)")
-                                .id(message.id)
-                        }
-                    }
-                    .padding()
-                }
-                .accessibilityIdentifier("messageScroll")
-                .scrollIndicators(.hidden)
-                .onChange(of: viewModel.messages.count) { _ in
-                    if let lastMessageId = viewModel.messages.last?.id {
-                        withAnimation {
-                            proxy.scrollTo(lastMessageId, anchor: .bottom)
-                        }
-                    }
-                }
-            }
+            ChatMessageList(
+                messages: viewModel.messages,
+                currentUid: authManager.currentUser?.uid,
+                pendingImage: { viewModel.pendingImage(for: $0) },
+                statusText: { viewModel.statusText(for: $0) },
+                uploadProgress: { viewModel.uploadProgressByMessageId[$0] }
+            )
             
-            // Input Area
-            HStack {
-                Button(action: { showingMediaPicker = true }) {
-                    Image(systemName: "plus")
-                        .foregroundColor(.white)
-                        .frame(width: 34, height: 34)
-                        .background(Color.white.opacity(0.12))
-                        .clipShape(Circle())
-                }
-                .accessibilityIdentifier("mediaButton")
-
-                TextField("输入消息...", text: $newMessageText)
-                    .padding(10)
-                    .background(Color.white.opacity(0.12))
-                    .cornerRadius(20)
-                    .foregroundColor(.white)
-                    .tint(.white)
-                    .accessibilityIdentifier("messageInput")
-                
-                Button(action: sendMessage) {
-                    Image(systemName: "paperplane.fill")
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(newMessageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.blue)
-                        .clipShape(Circle())
-                }
-                .accessibilityIdentifier("sendButton")
-                .disabled(newMessageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-            .padding()
+            ChatInputBar(
+                text: $newMessageText,
+                onOpenMedia: { showingMediaPicker = true },
+                onSend: sendMessage
+            )
         }
         .background(Color.black.ignoresSafeArea())
         .navigationTitle(viewModel.otherUser?.name ?? "聊天")
@@ -123,7 +78,7 @@ struct ChatRoomView: View {
         } message: {
             Text("不適切なユーザーとして運営に通報します。")
         }
-        .alert("提示", isPresented: Binding(get: { viewModel.errorMessage != nil }, set: { if !$0 { viewModel.errorMessage = nil } })) {
+        .alert("提示", isPresented: errorAlertPresentedBinding) {
             Button("确定", role: .cancel) {}
         } message: {
             Text(viewModel.errorMessage ?? "")
@@ -147,6 +102,95 @@ struct ChatRoomView: View {
         let text = newMessageText
         viewModel.sendText(text)
         newMessageText = ""
+    }
+
+    private var errorAlertPresentedBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )
+    }
+}
+
+private struct ChatMessageList: View {
+    let messages: [Message]
+    let currentUid: String?
+    let pendingImage: (String) -> UIImage?
+    let statusText: (Message) -> String?
+    let uploadProgress: (String) -> Double?
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(messages) { message in
+                        let isFromCurrentUser = message.senderId == currentUid
+                        let idPrefix = message.type == .image ? "imageBubble_" : "textBubble_"
+                        MessageBubble(
+                            message: message,
+                            isFromCurrentUser: isFromCurrentUser,
+                            pendingImage: pendingImage(message.messageId),
+                            statusText: statusText(message),
+                            uploadProgress: uploadProgress(message.messageId)
+                        )
+                        .accessibilityIdentifier("\(idPrefix)\(message.messageId)")
+                        .id(message.id)
+                    }
+                }
+                .padding()
+            }
+            .accessibilityIdentifier("messageScroll")
+            .scrollIndicators(.hidden)
+            .onChange(of: messages.count) { _, _ in
+                if let lastId = messages.last?.id {
+                    withAnimation {
+                        proxy.scrollTo(lastId, anchor: .bottom)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct ChatInputBar: View {
+    @Binding var text: String
+    let onOpenMedia: () -> Void
+    let onSend: () -> Void
+
+    private var trimmedText: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        HStack {
+            Button(action: onOpenMedia) {
+                Image(systemName: "plus")
+                    .foregroundColor(.white)
+                    .frame(width: 34, height: 34)
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(Circle())
+            }
+            .accessibilityIdentifier("mediaButton")
+
+            TextField("输入消息...", text: $text)
+                .padding(10)
+                .background(Color.white.opacity(0.12))
+                .cornerRadius(20)
+                .foregroundColor(.white)
+                .tint(.white)
+                .accessibilityIdentifier("messageInput")
+
+            Button(action: onSend) {
+                Image(systemName: "paperplane.fill")
+                    .foregroundColor(.white)
+                    .padding(10)
+                    .background(trimmedText.isEmpty ? Color.gray : Color.blue)
+                    .clipShape(Circle())
+            }
+            .accessibilityIdentifier("sendButton")
+            .disabled(trimmedText.isEmpty)
+        }
+        .padding()
     }
 }
 
